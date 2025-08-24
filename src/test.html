@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Frontend</title>
+    <script>
+        fetch('http://localhost:3001/')
+        .then(response => response.text())
+        .then(html => {
+            console.log('Page loads successfully');
+            if (html.includes('error')) {
+                console.error('Found error in HTML');
+            } else {
+                console.log('✅ No errors found');
+            }
+        })
+        .catch(err => console.error('❌ Error loading page:', err));
+    </script>
+</head>
+<body>
+    <h1>Testing Frontend</h1>
+</body>
+</html>

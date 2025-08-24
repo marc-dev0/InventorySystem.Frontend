@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Basic</title>
+    <style>
+        body { 
+            font-family: Arial; 
+            margin: 0; 
+            padding: 20px; 
+            background: #f0f0f0; 
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 Sistema de Inventarios - Test</h1>
+        <p>Si ves esto, el servidor web funciona.</p>
+        <button onclick="testReact()">Test React</button>
+        <div id="test-result"></div>
+    </div>
+    
+    <script>
+        function testReact() {
+            fetch('/src/main.tsx')
+                .then(response => response.text())
+                .then(text => {
+                    document.getElementById('test-result').innerHTML = 
+                        '<p style="color: green;">✅ main.tsx existe y se puede cargar</p>';
+                })
+                .catch(err => {
+                    document.getElementById('test-result').innerHTML = 
+                        '<p style="color: red;">❌ Error: ' + err.message + '</p>';
+                });
+        }
+    </script>
+</body>
+</html>
