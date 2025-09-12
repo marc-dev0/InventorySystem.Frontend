@@ -50,3 +50,12 @@ export interface BackgroundJob {
   detailedErrors?: string[]
   detailedWarnings?: string[]
 }
+
+export interface Store {
+  id: number
+  code: string
+  name: string
+  address?: string
+  phone?: string
+  hasInitialStock?: boolean
+}

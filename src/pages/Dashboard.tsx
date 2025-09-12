@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { FileUpload } from '../components/FileUpload'
 import { JobStatus } from '../components/JobStatus'
 import { ImportHistory } from '../components/ImportHistory'
+import InitialSetupSection from '../components/InitialSetupSection'
 import { dashboardService } from '../services/api'
 
 interface DashboardStats {
@@ -260,43 +261,30 @@ export const Dashboard: React.FC = () => {
         {/* Import Tab */}
         {activeTab === 'import' && (
           <div className="space-y-8">
-            {/* Import Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* File Upload */}
-              <div className="bg-white shadow-sm rounded-2xl border border-gray-200/60">
-                <div className="p-8">
-                  <div className="flex items-center space-x-3 mb-6">
-                    <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
-                      <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Importar Datos</h3>
-                      <p className="text-sm text-gray-500">Sube archivos Excel para procesar</p>
-                    </div>
+            {/* Primary: Sales Import - Most Frequently Used */}
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl shadow-lg">
+              <div className="p-8">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <span className="text-2xl">💰</span>
                   </div>
-                  
-                  <div className="space-y-4">
-                    <FileUpload
-                      type="products"
-                      onSuccess={handleUploadSuccess}
-                      onError={handleUploadError}
-                    />
-                    <FileUpload
-                      type="stock"
-                      onSuccess={handleUploadSuccess}
-                      onError={handleUploadError}
-                    />
-                    <FileUpload
-                      type="sales"
-                      onSuccess={handleUploadSuccess}
-                      onError={handleUploadError}
-                    />
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">Carga de Ventas</h2>
+                    <p className="text-orange-100">Importación diaria desde Tandia - Uso frecuente</p>
                   </div>
                 </div>
+                
+                <div className="bg-white rounded-xl p-6">
+                  <FileUpload
+                    type="sales"
+                    onSuccess={handleUploadSuccess}
+                    onError={handleUploadError}
+                  />
+                </div>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Job Status */}
               <div className="bg-white shadow-sm rounded-2xl border border-gray-200/60">
                 <div className="p-8">
@@ -319,6 +307,12 @@ export const Dashboard: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              {/* Secondary: Initial Setup - Rarely Used */}
+              <InitialSetupSection 
+                onUploadSuccess={handleUploadSuccess}
+                onUploadError={handleUploadError}
+              />
             </div>
 
             {/* Import History Table */}

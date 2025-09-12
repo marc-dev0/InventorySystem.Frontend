@@ -8,11 +8,109 @@ interface JobStatusProps {
   onJobCompleted?: () => void
 }
 
+interface DetailedViewModalProps {
+  job: BackgroundJob
+  onClose: () => void
+}
+
+const DetailedViewModal: React.FC<DetailedViewModalProps> = ({ job, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'warnings' | 'errors'>('warnings')
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-hidden w-full">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Detalles del Trabajo</h3>
+              <p className="text-sm text-gray-600">{job.fileName}</p>
+            </div>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6">
+            <button
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'warnings' 
+                  ? 'border-yellow-500 text-yellow-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setActiveTab('warnings')}
+            >
+              Advertencias ({job.detailedWarnings?.length || 0})
+            </button>
+            <button
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'errors' 
+                  ? 'border-red-500 text-red-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setActiveTab('errors')}
+            >
+              Errores ({job.detailedErrors?.length || 0})
+            </button>
+          </nav>
+        </div>
+
+        <div className="p-6 overflow-y-auto max-h-96">
+          {activeTab === 'warnings' && (
+            <div>
+              {job.detailedWarnings && job.detailedWarnings.length > 0 ? (
+                <ul className="space-y-3">
+                  {job.detailedWarnings.map((warning, index) => (
+                    <li key={index} className="flex items-start space-x-3">
+                      <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm text-gray-700 flex-1">{warning}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500 text-sm">No hay advertencias registradas.</p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'errors' && (
+            <div>
+              {job.detailedErrors && job.detailedErrors.length > 0 ? (
+                <ul className="space-y-3">
+                  {job.detailedErrors.map((error, index) => (
+                    <li key={index} className="flex items-start space-x-3">
+                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-1 rounded-full">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm text-gray-700 flex-1">{error}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500 text-sm">No hay errores registrados.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export const JobStatus: React.FC<JobStatusProps> = ({ jobId, showUserJobs = false, onJobCompleted }) => {
   const [job, setJob] = useState<BackgroundJob | null>(null)
   const [jobs, setJobs] = useState<BackgroundJob[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showDetailedView, setShowDetailedView] = useState<BackgroundJob | null>(null)
 
   useEffect(() => {
     if (jobId) {
@@ -118,7 +216,8 @@ export const JobStatus: React.FC<JobStatusProps> = ({ jobId, showUserJobs = fals
           <p className="text-gray-500">No tienes trabajos de importación</p>
         ) : (
           <div className="space-y-3">
-            {jobs.map((job) => (
+            {/* Show only the latest job */}
+            {jobs.slice(0, 1).map((job) => (
               <div key={job.jobId} className="border rounded-lg p-4">
                 <div className="flex justify-between items-start mb-2">
                   <div>
@@ -165,7 +264,15 @@ export const JobStatus: React.FC<JobStatusProps> = ({ jobId, showUserJobs = fals
                 
                 {job.detailedWarnings && job.detailedWarnings.length > 0 && (
                   <div className="mt-2">
-                    <p className="text-sm font-medium text-yellow-600">Advertencias:</p>
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-sm font-medium text-yellow-600">Advertencias ({job.detailedWarnings.length}):</p>
+                      <button
+                        onClick={() => setShowDetailedView(job)}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                      >
+                        Ver todas
+                      </button>
+                    </div>
                     <ul className="text-xs text-yellow-600 mt-1">
                       {job.detailedWarnings.slice(0, 3).map((warning, index) => (
                         <li key={index}>• {warning}</li>
@@ -264,7 +371,15 @@ export const JobStatus: React.FC<JobStatusProps> = ({ jobId, showUserJobs = fals
         
         {job.detailedWarnings && job.detailedWarnings.length > 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
-            <p className="font-medium text-yellow-700 mb-2">Advertencias detalladas:</p>
+            <div className="flex justify-between items-center mb-2">
+              <p className="font-medium text-yellow-700">Advertencias detalladas ({job.detailedWarnings.length}):</p>
+              <button
+                onClick={() => setShowDetailedView(job)}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium underline"
+              >
+                Ver todas
+              </button>
+            </div>
             <ul className="text-yellow-600 text-sm space-y-1">
               {job.detailedWarnings.slice(0, 5).map((warning, index) => (
                 <li key={index}>• {warning}</li>
@@ -276,6 +391,13 @@ export const JobStatus: React.FC<JobStatusProps> = ({ jobId, showUserJobs = fals
           </div>
         )}
       </div>
+      
+      {showDetailedView && (
+        <DetailedViewModal 
+          job={showDetailedView} 
+          onClose={() => setShowDetailedView(null)} 
+        />
+      )}
     </div>
   )
 }

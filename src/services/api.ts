@@ -69,4 +69,12 @@ export const importHistoryService = {
   }
 }
 
+// Stores service
+export const storesService = {
+  getAll: async () => {
+    const response = await api.get('/stores')
+    return response.data
+  }
+}
+
 export default api

@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { importHistoryService } from '../services/api'
+import { importService } from '../services/imports'
+import { Pagination } from './Pagination'
 import type { BackgroundJob } from '../types'
+
+interface DetailedViewModalProps {
+  job: BackgroundJob
+  onClose: () => void
+}
 
 interface ImportHistoryData {
   data: BackgroundJob[]
@@ -18,6 +24,98 @@ interface ImportHistoryData {
   }
 }
 
+const DetailedViewModal: React.FC<DetailedViewModalProps> = ({ job, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'warnings' | 'errors'>('warnings')
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-hidden w-full">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Detalles Completos - {job.fileName}</h3>
+              <p className="text-sm text-gray-600">ID: {job.jobId}</p>
+            </div>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6">
+            <button
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'warnings' 
+                  ? 'border-yellow-500 text-yellow-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setActiveTab('warnings')}
+            >
+              Advertencias ({job.detailedWarnings?.length || 0})
+            </button>
+            <button
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'errors' 
+                  ? 'border-red-500 text-red-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setActiveTab('errors')}
+            >
+              Errores ({job.detailedErrors?.length || 0})
+            </button>
+          </nav>
+        </div>
+
+        <div className="p-6 overflow-y-auto max-h-96">
+          {activeTab === 'warnings' && (
+            <div>
+              {job.detailedWarnings && job.detailedWarnings.length > 0 ? (
+                <ul className="space-y-3">
+                  {job.detailedWarnings.map((warning, index) => (
+                    <li key={index} className="flex items-start space-x-3">
+                      <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm text-gray-700 flex-1">{warning}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500 text-sm">No hay advertencias registradas.</p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'errors' && (
+            <div>
+              {job.detailedErrors && job.detailedErrors.length > 0 ? (
+                <ul className="space-y-3">
+                  {job.detailedErrors.map((error, index) => (
+                    <li key={index} className="flex items-start space-x-3">
+                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-1 rounded-full">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm text-gray-700 flex-1">{error}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500 text-sm">No hay errores registrados.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export const ImportHistory: React.FC = () => {
   const [historyData, setHistoryData] = useState<ImportHistoryData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -27,15 +125,32 @@ export const ImportHistory: React.FC = () => {
   const [jobTypeFilter, setJobTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [showDetailedView, setShowDetailedView] = useState<BackgroundJob | null>(null)
 
   useEffect(() => {
     fetchHistory()
+    
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(fetchHistory, 10000)
+    return () => clearInterval(interval)
   }, [currentPage, pageSize, jobTypeFilter, statusFilter])
 
   const fetchHistory = async () => {
     try {
       setLoading(true)
-      const data = await importHistoryService.getHistory(currentPage, pageSize, jobTypeFilter, statusFilter)
+      const jobs = await importService.getUserJobs()
+      const data = {
+        data: jobs,
+        pagination: {
+          currentPage: 1,
+          pageSize: jobs.length,
+          totalItems: jobs.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false
+        },
+        filters: {}
+      }
       setHistoryData(data)
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error al cargar el historial de importaciones')
@@ -87,6 +202,11 @@ export const ImportHistory: React.FC = () => {
     setCurrentPage(1) // Reset to first page when changing page size
   }
 
+  // Calculate pagination
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  const paginatedJobs = historyData?.data.slice(startIndex, endIndex) || []
+
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -104,27 +224,6 @@ export const ImportHistory: React.FC = () => {
             <p className="text-sm text-gray-500">Registro completo de todas las cargas realizadas</p>
           </div>
           
-          {/* Page Size Selector */}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <label htmlFor="pageSize" className="text-sm font-medium text-gray-700">
-                Mostrar:
-              </label>
-              <select
-                id="pageSize"
-                value={pageSize}
-                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <span className="text-sm text-gray-500">por página</span>
-            </div>
-          </div>
         </div>
 
         {/* Filters */}
@@ -183,6 +282,9 @@ export const ImportHistory: React.FC = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      #
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Tipo / Archivo
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -203,9 +305,14 @@ export const ImportHistory: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {historyData.data.map((job) => (
+                  {paginatedJobs.map((job, index) => (
                     <React.Fragment key={job.jobId}>
                       <tr className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {startIndex + index + 1}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
@@ -259,7 +366,7 @@ export const ImportHistory: React.FC = () => {
                       
                       {expandedRows.has(job.jobId) && (
                         <tr>
-                          <td colSpan={6} className="px-6 py-4 bg-gray-50">
+                          <td colSpan={7} className="px-6 py-4 bg-gray-50">
                             <div className="space-y-4">
                               {/* Job Details */}
                               <div>
@@ -285,7 +392,15 @@ export const ImportHistory: React.FC = () => {
                               {/* Errors */}
                               {job.detailedErrors && job.detailedErrors.length > 0 && (
                                 <div>
-                                  <h4 className="font-medium text-red-700 mb-2">Errores ({job.detailedErrors.length})</h4>
+                                  <div className="flex justify-between items-center mb-2">
+                                    <h4 className="font-medium text-red-700">Errores ({job.detailedErrors.length})</h4>
+                                    <button
+                                      onClick={() => setShowDetailedView(job)}
+                                      className="text-sm text-blue-600 hover:text-blue-800 font-medium underline"
+                                    >
+                                      Ver todas
+                                    </button>
+                                  </div>
                                   <div className="bg-red-50 border border-red-200 rounded p-3">
                                     <ul className="text-red-600 text-sm space-y-1">
                                       {job.detailedErrors.slice(0, 5).map((error, index) => (
@@ -302,7 +417,15 @@ export const ImportHistory: React.FC = () => {
                               {/* Warnings */}
                               {job.detailedWarnings && job.detailedWarnings.length > 0 && (
                                 <div>
-                                  <h4 className="font-medium text-yellow-700 mb-2">Advertencias ({job.detailedWarnings.length})</h4>
+                                  <div className="flex justify-between items-center mb-2">
+                                    <h4 className="font-medium text-yellow-700">Advertencias ({job.detailedWarnings.length})</h4>
+                                    <button
+                                      onClick={() => setShowDetailedView(job)}
+                                      className="text-sm text-blue-600 hover:text-blue-800 font-medium underline"
+                                    >
+                                      Ver todas
+                                    </button>
+                                  </div>
                                   <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
                                     <ul className="text-yellow-600 text-sm space-y-1">
                                       {job.detailedWarnings.slice(0, 5).map((warning, index) => (
@@ -336,58 +459,23 @@ export const ImportHistory: React.FC = () => {
             </div>
 
             {/* Pagination */}
-            {historyData.pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
-                <div className="text-sm text-gray-700">
-                  Mostrando {((historyData.pagination.currentPage - 1) * historyData.pagination.pageSize) + 1} a{' '}
-                  {Math.min(historyData.pagination.currentPage * historyData.pagination.pageSize, historyData.pagination.totalItems)} de{' '}
-                  {historyData.pagination.totalItems} registros
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handlePageChange(historyData.pagination.currentPage - 1)}
-                    disabled={!historyData.pagination.hasPreviousPage}
-                    className="px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Anterior
-                  </button>
-                  
-                  {/* Page Numbers */}
-                  {Array.from({ length: Math.min(historyData.pagination.totalPages, 5) }, (_, i) => {
-                    const startPage = Math.max(1, historyData.pagination.currentPage - 2)
-                    const pageNum = startPage + i
-                    
-                    if (pageNum > historyData.pagination.totalPages) return null
-                    
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => handlePageChange(pageNum)}
-                        className={`px-3 py-2 text-sm font-medium rounded-md ${
-                          pageNum === historyData.pagination.currentPage
-                            ? 'bg-blue-600 text-white'
-                            : 'border border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
-                  
-                  <button
-                    onClick={() => handlePageChange(historyData.pagination.currentPage + 1)}
-                    disabled={!historyData.pagination.hasNextPage}
-                    className="px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Siguiente
-                  </button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={historyData.data.length}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           </>
         )}
       </div>
+      
+      {showDetailedView && (
+        <DetailedViewModal 
+          job={showDetailedView} 
+          onClose={() => setShowDetailedView(null)} 
+        />
+      )}
     </div>
   )
 }
