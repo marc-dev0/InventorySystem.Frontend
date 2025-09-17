@@ -139,12 +139,21 @@ export const ImportHistory: React.FC = () => {
     try {
       setLoading(true)
       const jobs = await importService.getUserJobs()
+
+      // Ordenar por fecha de inicio de forma descendente (más reciente primero)
+      const sortedJobs = jobs.sort((a, b) => {
+        const dateA = new Date(a.startedAt)
+        const dateB = new Date(b.startedAt)
+        return dateB.getTime() - dateA.getTime() // Descendente
+      })
+
+
       const data = {
-        data: jobs,
+        data: sortedJobs,
         pagination: {
           currentPage: 1,
-          pageSize: jobs.length,
-          totalItems: jobs.length,
+          pageSize: sortedJobs.length,
+          totalItems: sortedJobs.length,
           totalPages: 1,
           hasNextPage: false,
           hasPreviousPage: false
@@ -179,8 +188,21 @@ export const ImportHistory: React.FC = () => {
     }
   }
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('es-ES')
+  const formatDateTimeDetailed = (dateStr: string) => {
+    // Parse as UTC and convert to local timezone automatically
+    const utcDate = new Date(dateStr + (dateStr.includes('Z') ? '' : 'Z'))
+
+    // Use toLocaleString to convert to local timezone automatically
+    return utcDate.toLocaleString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'America/Bogota' // Colombian timezone
+    })
   }
 
   const toggleRowExpansion = (jobId: string) => {
@@ -294,7 +316,7 @@ export const ImportHistory: React.FC = () => {
                       Registros
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha
+                      Inicio / Fin
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Usuario
@@ -340,14 +362,22 @@ export const ImportHistory: React.FC = () => {
                         </td>
                         
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatDate(job.startedAt)}
-                          </div>
-                          {job.completedAt && (
-                            <div className="text-xs text-gray-500">
-                              Fin: {formatDate(job.completedAt)}
+                          <div className="text-sm">
+                            <div className="text-gray-900 font-medium">
+                              🚀 {formatDateTimeDetailed(job.startedAt)}
                             </div>
-                          )}
+                            {job.completedAt ? (
+                              <div className="text-green-600 mt-1">
+                                ✅ {formatDateTimeDetailed(job.completedAt)}
+                              </div>
+                            ) : (
+                              job.status === 'PROCESSING' && (
+                                <div className="text-blue-600 mt-1">
+                                  ⏳ En progreso...
+                                </div>
+                              )
+                            )}
+                          </div>
                         </td>
                         
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -370,11 +400,11 @@ export const ImportHistory: React.FC = () => {
                             <div className="space-y-4">
                               {/* Job Details */}
                               <div>
-                                <h4 className="font-medium text-gray-900 mb-2">Detalles del Trabajo</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <h4 className="font-medium text-gray-900 mb-3">Detalles del Trabajo</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                                   <div>
                                     <span className="font-medium text-gray-700">ID:</span>
-                                    <p className="text-gray-600 break-all">{job.jobId}</p>
+                                    <p className="text-gray-600 break-all font-mono text-xs">{job.jobId}</p>
                                   </div>
                                   <div>
                                     <span className="font-medium text-gray-700">Progreso:</span>
@@ -384,6 +414,32 @@ export const ImportHistory: React.FC = () => {
                                     <div>
                                       <span className="font-medium text-gray-700">Tienda:</span>
                                       <p className="text-gray-600">{job.storeCode}</p>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="font-medium text-gray-700">🚀 Iniciado:</span>
+                                    <p className="text-gray-600">{formatDateTimeDetailed(job.startedAt)}</p>
+                                  </div>
+                                  {job.completedAt && (
+                                    <div>
+                                      <span className="font-medium text-gray-700">✅ Completado:</span>
+                                      <p className="text-green-600">{formatDateTimeDetailed(job.completedAt)}</p>
+                                    </div>
+                                  )}
+                                  {job.completedAt && (
+                                    <div>
+                                      <span className="font-medium text-gray-700">⏱️ Duración:</span>
+                                      <p className="text-blue-600">{
+                                        (() => {
+                                          // Use UTC times for duration calculation to get correct elapsed time
+                                          const start = new Date(job.startedAt + (job.startedAt.includes('Z') ? '' : 'Z'))
+                                          const end = new Date(job.completedAt + (job.completedAt.includes('Z') ? '' : 'Z'))
+                                          const duration = Math.round((end.getTime() - start.getTime()) / 1000)
+                                          const minutes = Math.floor(duration / 60)
+                                          const seconds = duration % 60
+                                          return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`
+                                        })()
+                                      }</p>
                                     </div>
                                   )}
                                 </div>

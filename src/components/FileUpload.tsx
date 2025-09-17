@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
 import { importService } from '../services/imports'
 import { storesService } from '../services/api'
+import { useStockInitialValidation } from '../hooks/useStockInitialValidation'
 import type { Store } from '../types'
 
 interface FileUploadProps {
@@ -28,13 +29,20 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
   const [file, setFile] = useState<File | null>(null)
   const [storeCode, setStoreCode] = useState('')
   const [uploading, setUploading] = useState(false)
-  
+
   // Use props if provided, otherwise fallback to local state (for backwards compatibility)
   const [localStores, setLocalStores] = useState<Store[]>([])
   const [localLoadingStores, setLocalLoadingStores] = useState(false)
-  
+
   const stores = propStores || localStores
   const loadingStores = propLoadingStores || localLoadingStores
+
+
+  // Hook para validar si se puede hacer carga de stock inicial (solo para tipo stock)
+  const { canPerformStockInitial, validationMessage, isLoading: isValidatingStock } = useStockInitialValidation(
+    type === 'stock' ? storeCode : null,
+    type === 'stock'
+  )
 
   // Load stores when component mounts (only if not provided via props)
   useEffect(() => {
@@ -104,9 +112,8 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
 
     // Special validation for stock upload
     if (type === 'stock') {
-      const selectedStore = stores.find(store => store.code === storeCode)
-      if (selectedStore && selectedStore.hasInitialStock === true) {
-        onError('Esta tienda ya tiene stock inicial cargado. Solo se permite una carga de stock inicial por tienda.')
+      if (!canPerformStockInitial) {
+        onError(validationMessage || 'No se puede realizar la carga de stock inicial en este momento.')
         return
       }
     }
@@ -220,33 +227,30 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
                 >
                   <option value="">Selecciona una tienda</option>
                   {stores.map((store) => (
-                    <option key={store.id} value={store.code} disabled={type === 'stock' && store.hasInitialStock === true}>
-                      {store.name} {type === 'stock' && store.hasInitialStock === true ? '(Stock inicial ya cargado)' : ''}
+                    <option key={store.id} value={store.code}>
+                      {store.name}
                     </option>
                   ))}
                 </select>
-                {type === 'stock' && storeCode && (() => {
-                  const selectedStore = stores.find(store => store.code === storeCode)
-                  return selectedStore && selectedStore.hasInitialStock === true ? (
-                    <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                      <div className="flex">
-                        <div className="flex-shrink-0">
-                          <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <div className="ml-3">
-                          <h3 className="text-sm font-medium text-yellow-800">
-                            Stock inicial ya cargado
-                          </h3>
-                          <div className="mt-2 text-sm text-yellow-700">
-                            <p>Esta tienda ya tiene stock inicial cargado. Solo se permite una carga de stock inicial por tienda.</p>
-                          </div>
+                {type === 'stock' && storeCode && validationMessage && (
+                  <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-yellow-800">
+                          Carga de stock inicial no disponible
+                        </h3>
+                        <div className="mt-2 text-sm text-yellow-700">
+                          <p>{validationMessage}</p>
                         </div>
                       </div>
                     </div>
-                  ) : null
-                })()}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -255,12 +259,13 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
         <button
           onClick={handleUpload}
           disabled={
-            !file || 
-            uploading || 
+            !file ||
+            uploading ||
+            isValidatingStock ||
             ((type === 'stock' || type === 'sales') && !storeCode) ||
-            (type === 'stock' && storeCode !== '' && stores.find(store => store.code === storeCode)?.hasInitialStock === true)
+            (type === 'stock' && storeCode !== '' && !canPerformStockInitial)
           }
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center"
+          className={`w-full py-2 px-4 rounded-md flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed`}
         >
           {uploading ? (
             <>
@@ -270,6 +275,10 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
               </svg>
               Subiendo...
             </>
+          ) : isValidatingStock ? (
+            'Validando...'
+          ) : (type === 'stock' && storeCode && !canPerformStockInitial) ? (
+            '❌ No disponible'
           ) : (
             'Subir Archivo'
           )}
