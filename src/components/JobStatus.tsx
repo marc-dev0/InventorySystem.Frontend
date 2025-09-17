@@ -5,7 +5,7 @@ import type { BackgroundJob } from '../types'
 interface JobStatusProps {
   jobId?: string
   showUserJobs?: boolean
-  onJobCompleted?: () => void
+  onJobCompleted?: (jobType?: string) => void
 }
 
 interface DetailedViewModalProps {
@@ -134,7 +134,8 @@ export const JobStatus: React.FC<JobStatusProps> = ({ jobId, showUserJobs = fals
       // Check if job just completed and call the callback
       const isCompleted = (status: string) => status === 'COMPLETED' || status === 'COMPLETED_WITH_WARNINGS'
       if (job && !isCompleted(job.status) && isCompleted(jobData.status) && onJobCompleted) {
-        onJobCompleted()
+        console.log(`🎉 Job completion detected! Previous: ${job.status} -> Current: ${jobData.status}, JobType: ${jobData.jobType}`)
+        onJobCompleted(jobData.jobType)
       }
       
       setJob(jobData)
@@ -159,7 +160,7 @@ export const JobStatus: React.FC<JobStatusProps> = ({ jobId, showUserJobs = fals
         for (const newJob of newJobs) {
           const previousJob = previousJobs.find(j => j.jobId === newJob.jobId)
           if (previousJob && !isCompleted(previousJob.status) && isCompleted(newJob.status)) {
-            onJobCompleted()
+            onJobCompleted(newJob.jobType)
             break // Only call once even if multiple jobs completed
           }
         }

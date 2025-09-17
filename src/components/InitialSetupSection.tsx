@@ -1,14 +1,25 @@
 import React, { useState } from 'react';
-import { FileUpload } from './FileUpload';
+import { FileUpload, FileUploadRef } from './FileUpload';
+import type { Store } from '../types';
 
 interface InitialSetupSectionProps {
   onUploadSuccess?: (jobId: string) => void;
   onUploadError?: (error: string) => void;
+  productsRef?: React.RefObject<FileUploadRef>;
+  stockRef?: React.RefObject<FileUploadRef>;
+  stores?: Store[];
+  loadingStores?: boolean;
+  onRefreshStores?: () => Promise<void>;
 }
 
 const InitialSetupSection: React.FC<InitialSetupSectionProps> = ({
   onUploadSuccess = () => {},
-  onUploadError = () => {}
+  onUploadError = () => {},
+  productsRef,
+  stockRef,
+  stores,
+  loadingStores,
+  onRefreshStores
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -84,6 +95,7 @@ const InitialSetupSection: React.FC<InitialSetupSectionProps> = ({
                     </div>
                   </div>
                   <FileUpload 
+                    ref={productsRef}
                     type="products"
                     onSuccess={onUploadSuccess}
                     onError={onUploadError}
@@ -107,7 +119,11 @@ const InitialSetupSection: React.FC<InitialSetupSectionProps> = ({
                     </div>
                   </div>
                   <FileUpload 
+                    ref={stockRef}
                     type="stock"
+                    stores={stores}
+                    loadingStores={loadingStores}
+                    onRefreshStores={onRefreshStores}
                     onSuccess={onUploadSuccess}
                     onError={onUploadError}
                   />

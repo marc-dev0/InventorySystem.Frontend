@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
 import { importService } from '../services/imports'
 import { storesService } from '../services/api'
 import type { Store } from '../types'
@@ -7,34 +7,73 @@ interface FileUploadProps {
   type: 'products' | 'stock' | 'sales'
   onSuccess: (jobId: string) => void
   onError: (error: string) => void
+  // Optional props for store management (products type doesn't need stores)
+  stores?: Store[]
+  loadingStores?: boolean
+  onRefreshStores?: () => Promise<void>
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ type, onSuccess, onError }) => {
+export interface FileUploadRef {
+  refreshStores: () => Promise<void>
+}
+
+export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({ 
+  type, 
+  onSuccess, 
+  onError, 
+  stores: propStores, 
+  loadingStores: propLoadingStores, 
+  onRefreshStores 
+}, ref) => {
   const [file, setFile] = useState<File | null>(null)
   const [storeCode, setStoreCode] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [stores, setStores] = useState<Store[]>([])
-  const [loadingStores, setLoadingStores] = useState(false)
+  
+  // Use props if provided, otherwise fallback to local state (for backwards compatibility)
+  const [localStores, setLocalStores] = useState<Store[]>([])
+  const [localLoadingStores, setLocalLoadingStores] = useState(false)
+  
+  const stores = propStores || localStores
+  const loadingStores = propLoadingStores || localLoadingStores
 
-  // Load stores when component mounts
+  // Load stores when component mounts (only if not provided via props)
   useEffect(() => {
-    if (type === 'stock' || type === 'sales') {
-      loadStores()
+    if ((type === 'stock' || type === 'sales') && !propStores) {
+      console.log(`🚀 FileUpload ${type} component mounted, loading stores locally...`)
+      loadStoresLocal()
     }
-  }, [type])
+  }, [type, propStores])
 
-  const loadStores = async () => {
+  const loadStoresLocal = async () => {
     try {
-      setLoadingStores(true)
+      console.log(`📡 Starting local loadStores for ${type}...`)
+      setLocalLoadingStores(true)
       const storesData = await storesService.getAll()
-      setStores(storesData)
+      console.log(`✅ Got ${storesData.length} stores locally for ${type}:`, storesData.map((s: Store) => `${s.code}-${s.name}`))
+      setLocalStores(storesData)
     } catch (error) {
-      console.error('Error loading stores:', error)
+      console.error(`❌ Error loading stores locally for ${type}:`, error)
       onError('Error al cargar las tiendas')
     } finally {
-      setLoadingStores(false)
+      setLocalLoadingStores(false)
     }
   }
+
+  // Function to refresh stores (either via props or locally)
+  const refreshStores = async () => {
+    if (onRefreshStores) {
+      console.log(`🔄 Refreshing stores via props for ${type}...`)
+      await onRefreshStores()
+    } else {
+      console.log(`🔄 Refreshing stores locally for ${type}...`)
+      await loadStoresLocal()
+    }
+  }
+
+  // Expose the refresh function to parent components
+  useImperativeHandle(ref, () => ({
+    refreshStores: refreshStores
+  }), [refreshStores])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -66,7 +105,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ type, onSuccess, onError
     // Special validation for stock upload
     if (type === 'stock') {
       const selectedStore = stores.find(store => store.code === storeCode)
-      if (selectedStore && selectedStore.hasInitialStock) {
+      if (selectedStore && selectedStore.hasInitialStock === true) {
         onError('Esta tienda ya tiene stock inicial cargado. Solo se permite una carga de stock inicial por tienda.')
         return
       }
@@ -88,7 +127,27 @@ export const FileUpload: React.FC<FileUploadProps> = ({ type, onSuccess, onError
       }
       onSuccess(result.jobId)
     } catch (error: any) {
-      onError(error.response?.data?.message || 'Error al subir el archivo')
+      // Capture full error details for better user feedback
+      const errorData = error.response?.data
+      let errorMessage = 'Error al subir el archivo'
+      
+      if (errorData) {
+        if (errorData.error) {
+          errorMessage = errorData.error
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        }
+        
+        // Include additional details if available
+        if (errorData.reason) {
+          errorMessage += `\n\nDetalle: ${errorData.reason}`
+        }
+        if (errorData.suggestion) {
+          errorMessage += `\n\nSugerencia: ${errorData.suggestion}`
+        }
+      }
+      
+      onError(errorMessage)
     } finally {
       setUploading(false)
     }
@@ -127,9 +186,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({ type, onSuccess, onError
 
         {(type === 'stock' || type === 'sales') && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tienda
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Tienda
+              </label>
+              <button
+                onClick={refreshStores}
+                disabled={loadingStores}
+                className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                title="Actualizar lista de tiendas"
+              >
+                <svg className={`h-3 w-3 ${loadingStores ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Actualizar</span>
+              </button>
+            </div>
             {loadingStores ? (
               <div className="flex items-center px-3 py-2 border border-gray-300 rounded-md">
                 <svg className="animate-spin h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24">
@@ -148,14 +220,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({ type, onSuccess, onError
                 >
                   <option value="">Selecciona una tienda</option>
                   {stores.map((store) => (
-                    <option key={store.id} value={store.code} disabled={type === 'stock' && store.hasInitialStock}>
-                      {store.name} {type === 'stock' && store.hasInitialStock ? '(Stock inicial ya cargado)' : ''}
+                    <option key={store.id} value={store.code} disabled={type === 'stock' && store.hasInitialStock === true}>
+                      {store.name} {type === 'stock' && store.hasInitialStock === true ? '(Stock inicial ya cargado)' : ''}
                     </option>
                   ))}
                 </select>
                 {type === 'stock' && storeCode && (() => {
                   const selectedStore = stores.find(store => store.code === storeCode)
-                  return selectedStore && selectedStore.hasInitialStock ? (
+                  return selectedStore && selectedStore.hasInitialStock === true ? (
                     <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                       <div className="flex">
                         <div className="flex-shrink-0">
@@ -186,7 +258,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ type, onSuccess, onError
             !file || 
             uploading || 
             ((type === 'stock' || type === 'sales') && !storeCode) ||
-            (type === 'stock' && storeCode && stores.find(store => store.code === storeCode)?.hasInitialStock)
+            (type === 'stock' && storeCode !== '' && stores.find(store => store.code === storeCode)?.hasInitialStock === true)
           }
           className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center"
         >
@@ -205,4 +277,4 @@ export const FileUpload: React.FC<FileUploadProps> = ({ type, onSuccess, onError
       </div>
     </div>
   )
-}
+})
