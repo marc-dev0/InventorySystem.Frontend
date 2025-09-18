@@ -54,6 +54,10 @@ export const Dashboard: React.FC = () => {
   const productsFileUploadRef = useRef<FileUploadRef>(null)
   const stockFileUploadRef = useRef<FileUploadRef>(null)
 
+  // New import types states
+  const [originStoreCode, setOriginStoreCode] = useState('')
+  const [destinationStoreCode, setDestinationStoreCode] = useState('')
+
   useEffect(() => {
     const loadStats = async () => {
       try {
@@ -572,7 +576,7 @@ export const Dashboard: React.FC = () => {
               </div>
 
               {/* Secondary: Initial Setup - Rarely Used */}
-              <InitialSetupSection 
+              <InitialSetupSection
                 onUploadSuccess={handleUploadSuccess}
                 onUploadError={handleUploadError}
                 productsRef={productsFileUploadRef}
@@ -581,6 +585,91 @@ export const Dashboard: React.FC = () => {
                 loadingStores={loadingStores}
                 onRefreshStores={loadStores}
               />
+            </div>
+
+            {/* New Tandia Import Types */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Credit Notes Import */}
+              <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl shadow-lg">
+                <div className="p-6">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <span className="text-xl">🧾</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Notas de Crédito</h3>
+                      <p className="text-yellow-100 text-sm">Devoluciones y cancelaciones</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4">
+                    <FileUpload
+                      type="credit-notes"
+                      stores={stores}
+                      loadingStores={loadingStores}
+                      onRefreshStores={loadStores}
+                      onSuccess={handleUploadSuccess}
+                      onError={handleUploadError}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Purchases Import */}
+              <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl shadow-lg">
+                <div className="p-6">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <span className="text-xl">🛒</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Compras</h3>
+                      <p className="text-green-100 text-sm">Ingreso de mercadería</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4">
+                    <FileUpload
+                      type="purchases"
+                      stores={stores}
+                      loadingStores={loadingStores}
+                      onRefreshStores={loadStores}
+                      onSuccess={handleUploadSuccess}
+                      onError={handleUploadError}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Transfers Import */}
+              <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl shadow-lg">
+                <div className="p-6">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <span className="text-xl">🔄</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Transferencias</h3>
+                      <p className="text-blue-100 text-sm">Entre tiendas</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4">
+                    <FileUpload
+                      type="transfers"
+                      stores={stores}
+                      loadingStores={loadingStores}
+                      onRefreshStores={loadStores}
+                      originStoreCode={originStoreCode}
+                      destinationStoreCode={destinationStoreCode}
+                      onOriginStoreChange={setOriginStoreCode}
+                      onDestinationStoreChange={setDestinationStoreCode}
+                      onSuccess={handleUploadSuccess}
+                      onError={handleUploadError}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Import History Table */}

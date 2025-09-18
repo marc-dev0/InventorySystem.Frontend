@@ -31,8 +31,48 @@ export const importService = {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('storeCode', storeCode)
-    
+
     const response = await api.post('/backgroundjobs/sales/queue', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  async uploadCreditNotes(file: File, storeCode: string): Promise<{ jobId: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('storeCode', storeCode)
+
+    const response = await api.post('/backgroundjobs/credit-notes/queue', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  async uploadPurchases(file: File, storeCode: string): Promise<{ jobId: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('storeCode', storeCode)
+
+    const response = await api.post('/backgroundjobs/purchases/queue', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  async uploadTransfers(file: File, originStoreCode: string, destinationStoreCode: string): Promise<{ jobId: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('originStoreCode', originStoreCode)
+    formData.append('destinationStoreCode', destinationStoreCode)
+
+    const response = await api.post('/backgroundjobs/transfers/queue', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
